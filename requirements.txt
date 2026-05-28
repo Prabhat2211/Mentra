@@ -1,0 +1,6 @@
+langgraph>=0.2.60
+streamlit>=1.40.0
+yfinance>=0.2.50
+python-telegram-bot>=21.7
+pytest>=8.3.0
+google-genai>=1.53.0
