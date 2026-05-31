@@ -26,14 +26,18 @@ load_dotenv()
 @dataclass(frozen=True)
 class Settings:
     database_path: str = os.getenv("DATABASE_PATH", "yuno_agents.db")
-    llm_provider: str = os.getenv("LLM_PROVIDER", "fallback").lower()
+    llm_provider: str = os.getenv("LLM_PROVIDER", "groq").lower()
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+    groq_api_key: str | None = os.getenv("GROQ_API_KEY")
+    groq_model: str = os.getenv("GROQ_MODEL", "gpt-oss-120B")
+    groq_base_url: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
     telegram_bot_token: str | None = os.getenv("TELEGRAM_BOT_TOKEN")
     telegram_enabled: bool = os.getenv("TELEGRAM_ENABLED", "false").lower() == "true"
     default_telegram_workflow_id: str | None = os.getenv("DEFAULT_TELEGRAM_WORKFLOW_ID")
+    encryption_master_key: str = os.getenv("ENCRYPTION_MASTER_KEY", "")
 
 
 settings = Settings()

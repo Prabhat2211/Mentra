@@ -21,7 +21,24 @@ def test_active_llm_status_reports_gemini_when_key_is_configured():
     }
 
 
-def test_active_llm_status_reports_fallback_when_gemini_key_is_missing():
+def test_active_llm_status_reports_groq_when_key_is_configured():
+    status = active_llm_status(
+        Settings(
+            llm_provider="groq",
+            groq_api_key="groq-test-key",
+            groq_model="gpt-oss-120B",
+        )
+    )
+
+    assert status == {
+        "provider": "groq",
+        "model": "gpt-oss-120B",
+        "mode": "llm",
+        "configured": True,
+    }
+
+
+def test_active_llm_status_reports_unconfigured_when_gemini_key_is_missing():
     status = active_llm_status(
         Settings(
             llm_provider="gemini",
@@ -31,6 +48,6 @@ def test_active_llm_status_reports_fallback_when_gemini_key_is_missing():
     )
 
     assert status["provider"] == "gemini"
-    assert status["mode"] == "fallback"
+    assert status["mode"] == "unconfigured"
     assert status["configured"] is False
 
