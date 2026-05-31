@@ -176,3 +176,6 @@ def _compact_number(value: int) -> str:
         if abs(value) >= divisor:
             return f"{value / divisor:.2f}{suffix}"
     return f"{value:,}"
+
+
+

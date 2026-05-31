@@ -5,3 +5,6 @@ __pycache__/
 *.db
 .env
 Yuno AI Engineer Challenge.pdf
+node_modules/
+dist/
+.DS_Store

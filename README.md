@@ -1,119 +1,127 @@
-# Yuno AI Agent Orchestration MVP
+# Yuno AI Agent Orchestration Platform
 
-This repository is a minimal implementation of the Yuno AI Engineer Challenge. It starts with a Streamlit UI, SQLite persistence, a LangGraph-oriented runtime, and a Telegram-first Financial Assistant workflow.
+A multi-provider AI agent orchestration platform with a FastAPI backend, React frontend, LangGraph runtime, SQLite persistence, and Telegram integration.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  UI[Streamlit UI] --> DB[(SQLite)]
-  UI --> Runtime[Workflow Runtime]
+  React[React UI] --> API[FastAPI API]
+  API --> Runtime[LangGraph Runtime]
   Telegram[Telegram Bot] --> Runtime
   Runtime --> Templates[Workflow Templates]
   Runtime --> Tools[Tools]
+  Runtime --> LLM[Groq / Gemini / OpenAI]
   Tools --> Yahoo[Yahoo Finance]
-  Runtime --> DB
+  Runtime --> DB[(SQLite)]
   DB --> Messages[Messages]
-  DB --> Logs[Logs]
+  DB --> Logs[Logs & Metrics]
 ```
 
-The runtime tries to use LangGraph when available and keeps a small sequential fallback so the MVP remains easy to test locally. The public entrypoint is shared by Streamlit and Telegram:
+## Features
 
-```python
-run_workflow(workflow_id, user_input, source_channel="ui", external_user_id=None)
-```
-
-## Workflows
-
-### Research Summary
-
-A two-agent workflow:
-
-```text
-Human input -> Research Agent -> Summarizer Agent -> Final response
-```
-
-### Financial Assistant
-
-A Telegram-first workflow:
-
-```text
-Telegram message -> Query Detector -> Company Extractor -> Ticker Resolver -> Market Data -> Response Formatter -> Telegram reply
-```
-
-It detects stock-related messages, extracts the company or ticker mention, resolves it to a Yahoo Finance symbol, fetches market data with `yfinance`, and formats a clean response with a financial-data disclaimer.
+- **Agent CRUD** — Create agents with name, role, system prompt, model, tools, channel, personality (7 tones), guardrails, memory toggle, and per-agent LLM provider configuration
+- **Workflow Templates** — Research Summary (2 agents) and Financial Assistant (5 agents) with agent assignment
+- **Custom Drag-and-Drop Builder** — React Flow canvas to build and connect multi-agent workflows
+- **Telegram Bot** — `/workflows`, `/use <number|name>` to switch workflows, live execution
+- **Schedules** — Interval-based recurring workflow execution (15 min → weekly)
+- **Live Monitoring** — Real-time logs (polling), inter-agent messages, token/cost tracking, runtime per operation
+- **Impact Metrics** — Dashboard with completion rate, avg/total runtime, configurable dimensions, agent messages
+- **Multi-Provider LLM** — Groq, Gemini, OpenAI with per-agent override
 
 ## Setup
+
+### Backend
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+```
+
+Edit `.env` with your API keys:
+
+```env
+LLM_PROVIDER=groq
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=gpt-oss-120B
+```
+
+Initialize the database:
+
+```bash
 python -m app.main
 ```
 
-Run the UI:
+### Frontend
 
 ```bash
-streamlit run app/ui/streamlit_app.py
+cd frontend
+npm install
+npm run dev
 ```
 
-## Gemini Configuration
+The frontend runs at `http://localhost:5173` and expects the backend at `http://localhost:8000`.
 
-To run the agent nodes through Gemini, set these values in `.env`:
-
-```env
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL=gemini-2.5-flash-lite
-```
-
-The dashboard shows the active provider, model, and mode. After a workflow run, the Monitoring page should include:
-
-```text
-llm.call.started
-llm.call.completed
-```
-
-Those log rows include `provider`, `model`, `mode`, `node`, latency, and token counts when Gemini returns usage metadata. If `GEMINI_API_KEY` is missing, the app stays runnable in fallback mode and marks LLM calls as `mode: fallback`.
-
-Run tests:
+### Run Backend Server
 
 ```bash
-pytest
+uvicorn backend.main:app --reload --port 8000
 ```
 
-Run Telegram polling:
+### Run Telegram Bot
 
 ```bash
 python -m app.channels.telegram
 ```
 
-Set `TELEGRAM_BOT_TOKEN` in `.env` or your shell before running the bot.
+Set `TELEGRAM_BOT_TOKEN` in `.env`.
+
+### Run Scheduler (optional)
+
+```bash
+python -m app.scheduler
+```
+
+### Run Tests
+
+```bash
+pytest
+```
 
 ## Why This Stack
 
-- **LangGraph** maps well to multi-agent workflows, explicit state, routing, and future feedback loops.
-- **Streamlit** keeps the first version small and demoable while validating the runtime and persistence model.
-- **SQLite** is enough for a local challenge demo and makes setup friction low.
-- **Telegram** is the fastest external messaging channel to demonstrate locally.
+- **LangGraph** (over CrewAI, AutoGen, or custom runtime) — StateGraph maps naturally to multi-agent workflows with explicit state passing. Supports conditional routing for future branching. CrewAI adds abstraction overhead for linear templates. AutoGen requires more boilerplate for simple sequential flows.
+- **FastAPI + React** — Production-grade separation between API layer, runtime, and frontend.
+- **SQLite** — Zero-config persistence, enough for local demos.
+- **Telegram** — Fastest external channel to demonstrate locally with polling-based adapter.
 
-## Adding A Workflow Template
+## Adding a Workflow Template
 
-1. Add a template file under `app/templates/`.
-2. Define nodes, edges, sample input, and default config.
-3. Register it in `app/templates/registry.py`.
-4. Add node handlers in `app/runtime/graph.py`.
-5. Add a test covering the workflow execution path.
+1. Add a template file under `app/templates/` following the `WorkflowTemplate` dataclass.
+2. Register it in `app/templates/registry.py`.
+3. Add node handlers in `app/runtime/graph.py` (or rely on `_build_agent_node` for agent-assigned templates).
+4. Add the template to the frontend `TEMPLATES` array in `frontend/src/pages/WorkflowCreate.tsx`.
+5. Add a test in `tests/test_workflows.py`.
 
-## Known Limitations
+## Adding a Messaging Channel
 
-- The visual workflow builder is currently template-based rather than drag-and-drop.
-- Schedules are stored as config in the plan, but recurring execution is not implemented yet.
-- Cost tracking is estimated from response size.
-- The LLM layer is intentionally minimal in this first pass; the runtime is ready for model-backed agent nodes.
+1. Create a new file under `app/channels/` (e.g., `slack.py`).
+2. Implement an adapter that receives messages, calls `run_workflow()`, and sends the output back.
+3. Add config keys to `app/config.py` and `.env.example`.
+4. Register a `python -m` entrypoint.
+5. Add a test in `tests/test_channels.py`.
 
-## Phase 2 Direction
+See `app/channels/telegram.py` as a reference implementation.
 
-The next version should split the app into a FastAPI backend and React frontend while preserving the SQLite schema, runtime entrypoint, workflow templates, Telegram adapter, and tests.
+## Impact Metrics
+
+| Metric | Description |
+|--------|-------------|
+| Configurable dimensions/agent | 14 editable fields per agent |
+| Task completion rate | `completed / total` from runs table |
+| Avg runtime | Mean execution time per workflow in ms |
+| Total runtime | Cumulative execution time across all runs |
+| Agent-to-agent messages | Total inter-agent messages persisted |
+| Failed runs | Count and % of workflows that failed |
